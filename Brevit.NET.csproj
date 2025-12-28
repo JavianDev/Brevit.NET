@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Authors>JavianDev</Authors>
+    <Company>Brevit</Company>
+    <PackageId>Brevit</PackageId>
+    <Description>A high-performance, type-safe .NET library for semantically compressing and optimizing data before sending it to a Large Language Model (LLM).</Description>
+    <Version>0.1.1</Version>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/JavianDev/Brevit.NET.git</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/JavianDev/Brevit.NET</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>
