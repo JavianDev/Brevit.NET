@@ -126,6 +126,16 @@ namespace Brevit.NET
         /// Anything over this will be processed by the TextOptimizer.
         /// </summary>
         public int LongTextThreshold { get; init; } = 500;
+
+        /// <summary>
+        /// Enable abbreviation feature for frequently repeated key prefixes.
+        /// </summary>
+        public bool EnableAbbreviations { get; init; } = true;
+
+        /// <summary>
+        /// Minimum number of occurrences required to create an abbreviation.
+        /// </summary>
+        public int AbbreviationThreshold { get; init; } = 2;
     }
 
     #endregion
@@ -639,7 +649,7 @@ namespace Brevit.NET
         {
             return config.JsonMode switch
             {
-                JsonOptimizationMode.Flatten => Task.FromResult(FlattenJson(jsonString)),
+                JsonOptimizationMode.Flatten => Task.FromResult(FlattenJson(jsonString, config)),
                 JsonOptimizationMode.ToYaml => Task.FromResult(ConvertJsonToYaml(jsonString)),
                 JsonOptimizationMode.Filter => Task.FromResult(FilterJson(jsonString, config.JsonPathsToKeep)),
                 _ => Task.FromResult(jsonString) // None
@@ -750,9 +760,9 @@ namespace Brevit.NET
 
         /// <summary>
         /// This is the "magic." Flattens a JSON object into a
-        /// token-efficient key-value format with tabular optimization.
+        /// token-efficient key-value format with tabular optimization and abbreviations.
         /// </summary>
-        private string FlattenJson(string jsonString)
+        private string FlattenJson(string jsonString, BrevitConfig config)
         {
             try
             {
@@ -762,12 +772,203 @@ namespace Brevit.NET
                 var output = new List<string>();
                 Flatten(node, "", output);
 
-                return string.Join("\n", output);
+                // Extract paths from output (before values)
+                var paths = new List<string>();
+                foreach (var line in output)
+                {
+                    var colonIndex = line.IndexOf(':');
+                    if (colonIndex > 0)
+                    {
+                        var pathPart = line.Substring(0, colonIndex);
+                        // Handle tabular arrays: "key[count]{fields}:"
+                        var bracketIndex = pathPart.IndexOf('[');
+                        if (bracketIndex > 0)
+                        {
+                            paths.Add(pathPart.Substring(0, bracketIndex));
+                        }
+                        else
+                        {
+                            paths.Add(pathPart);
+                        }
+                    }
+                    else
+                    {
+                        var parts = line.Split(':');
+                        paths.Add(parts.Length > 0 ? parts[0] : "");
+                    }
+                }
+
+                // Generate abbreviations
+                var (abbreviationMap, definitions) = GenerateAbbreviations(paths, config);
+
+                // Apply abbreviations to output
+                var abbreviatedOutput = new List<string>();
+                foreach (var line in output)
+                {
+                    var colonIndex = line.IndexOf(':');
+                    if (colonIndex == -1)
+                    {
+                        abbreviatedOutput.Add(line);
+                        continue;
+                    }
+
+                    var pathPart = line.Substring(0, colonIndex);
+                    var valuePart = line.Substring(colonIndex);
+
+                    // Handle tabular arrays - abbreviate the base path
+                    var bracketIndex = pathPart.IndexOf('[');
+                    if (bracketIndex > 0)
+                    {
+                        var basePath = pathPart.Substring(0, bracketIndex);
+                        var rest = pathPart.Substring(bracketIndex);
+                        var abbreviatedBase = ApplyAbbreviations(basePath, abbreviationMap, config);
+                        abbreviatedOutput.Add(abbreviatedBase + rest + valuePart);
+                    }
+                    else
+                    {
+                        var abbreviatedPath = ApplyAbbreviations(pathPart, abbreviationMap, config);
+                        abbreviatedOutput.Add(abbreviatedPath + valuePart);
+                    }
+                }
+
+                // Combine: definitions first, then abbreviated output
+                if (definitions.Count > 0)
+                {
+                    return string.Join("\n", definitions) + "\n" + string.Join("\n", abbreviatedOutput);
+                }
+
+                return string.Join("\n", abbreviatedOutput);
             }
             catch (JsonException ex)
             {
                 return $"[Error: Invalid JSON - {ex.Message}]";
             }
+        }
+
+        /// <summary>
+        /// Generates abbreviations for frequently repeated prefixes.
+        /// </summary>
+        private (Dictionary<string, string> map, List<string> definitions) GenerateAbbreviations(List<string> paths, BrevitConfig config)
+        {
+            if (!config.EnableAbbreviations)
+            {
+                return (new Dictionary<string, string>(), new List<string>());
+            }
+
+            // Count prefix frequencies
+            var prefixCounts = new Dictionary<string, int>();
+            
+            foreach (var path in paths)
+            {
+                // Extract all prefixes (e.g., "user", "user.name", "order.items")
+                var parts = path.Split('.');
+                for (int i = 1; i <= parts.Length; i++)
+                {
+                    var prefix = string.Join(".", parts.Take(i));
+                    prefixCounts[prefix] = prefixCounts.GetValueOrDefault(prefix, 0) + 1;
+                }
+            }
+
+            // Filter prefixes that meet threshold
+            var frequentPrefixes = prefixCounts
+                .Where(kvp => kvp.Value >= config.AbbreviationThreshold)
+                .OrderByDescending(kvp => kvp.Value)
+                .ThenBy(kvp => kvp.Key.Length)
+                .ToList();
+
+            // Generate abbreviations
+            var abbreviationMap = new Dictionary<string, string>();
+            var definitions = new List<string>();
+            int abbrCounter = 0;
+            var usedAbbrs = new HashSet<string>();
+
+            foreach (var (prefix, count) in frequentPrefixes)
+            {
+                // Calculate savings: (prefix.length - abbr.length) * count
+                // Only abbreviate if it saves tokens
+                var abbr = GenerateAbbreviation(prefix, abbrCounter, usedAbbrs);
+                var definitionCost = prefix.Length + abbr.Length + 3; // "@x=prefix"
+                var savings = (prefix.Length - abbr.Length - 1) * count; // -1 for "@"
+                
+                // Only create abbreviation if it saves tokens (accounting for definition)
+                if (savings > definitionCost)
+                {
+                    abbreviationMap[prefix] = abbr;
+                    definitions.Add($"@{abbr}={prefix}");
+                    abbrCounter++;
+                }
+            }
+
+            return (abbreviationMap, definitions);
+        }
+
+        /// <summary>
+        /// Generates a short abbreviation for a prefix.
+        /// </summary>
+        private string GenerateAbbreviation(string prefix, int counter, HashSet<string> usedAbbrs)
+        {
+            // Strategy 1: Use first letter if available and not used
+            var firstLetter = prefix.Split('.')[0][0].ToString().ToLowerInvariant();
+            if (!usedAbbrs.Contains(firstLetter))
+            {
+                usedAbbrs.Add(firstLetter);
+                return firstLetter;
+            }
+
+            // Strategy 2: Use first letter of each part (e.g., "order.items" -> "oi")
+            var parts = prefix.Split('.');
+            if (parts.Length > 1)
+            {
+                var multiLetter = string.Join("", parts.Select(p => p[0])).ToLowerInvariant();
+                if (!usedAbbrs.Contains(multiLetter) && multiLetter.Length <= 3)
+                {
+                    usedAbbrs.Add(multiLetter);
+                    return multiLetter;
+                }
+            }
+
+            // Strategy 3: Use counter-based abbreviation (a, b, c, ..., z, aa, ab, ...)
+            var abbr = "";
+            var num = counter;
+            do
+            {
+                abbr = ((char)(97 + (num % 26))) + abbr; // 97 = 'a'
+                num = num / 26 - 1;
+            } while (num >= 0);
+            
+            usedAbbrs.Add(abbr);
+            return abbr;
+        }
+
+        /// <summary>
+        /// Applies abbreviations to a path string.
+        /// </summary>
+        private string ApplyAbbreviations(string path, Dictionary<string, string> abbreviationMap, BrevitConfig config)
+        {
+            if (!config.EnableAbbreviations || abbreviationMap.Count == 0)
+            {
+                return path;
+            }
+
+            // Find the longest matching prefix
+            string bestMatch = "";
+            string bestAbbr = "";
+            
+            foreach (var (prefix, abbr) in abbreviationMap)
+            {
+                if (path.StartsWith(prefix + ".") && prefix.Length > bestMatch.Length)
+                {
+                    bestMatch = prefix;
+                    bestAbbr = abbr;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(bestMatch))
+            {
+                return $"@{bestAbbr}.{path.Substring(bestMatch.Length + 1)}";
+            }
+
+            return path;
         }
 
         /// <summary>
