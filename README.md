@@ -159,8 +159,8 @@ dotnet add package Brevit
 ### Install from Source
 
 ```bash
-git clone https://github.com/JavianDev/Brevit.git
-cd Brevit/Brevit.NET
+git clone https://github.com/JavianDev/Brevit.NET.git
+cd Brevit.NET
 dotnet build
 dotnet add reference ../Brevit.NET/Brevit.NET.csproj
 ```
