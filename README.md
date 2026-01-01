@@ -1,24 +1,24 @@
-# Brevit.NET
+# Brevit
 
 A high-performance, type-safe .NET library for semantically compressing and optimizing data before sending it to a Large Language Model (LLM). Dramatically reduce token costs while maintaining data integrity and readability.
 
 ## Table of Contents
 
-- [Why Brevit.NET?](#why-brevitnet)
+- [Why Brevit?](#why-brevit)
 - [Key Features](#key-features)
-- [When Not to Use Brevit.NET](#when-not-to-use-brevitnet)
+- [When Not to Use Brevit](#when-not-to-use-brevit)
 - [Benchmarks](#benchmarks)
 - [Installation & Quick Start](#installation--quick-start)
 - [Playgrounds](#playgrounds)
 - [CLI](#cli)
 - [Format Overview](#format-overview)
 - [API](#api)
-- [Using Brevit.NET in LLM Prompts](#using-brevitnet-in-llm-prompts)
+- [Using Brevit in LLM Prompts](#using-brevit-in-llm-prompts)
 - [Syntax Cheatsheet](#syntax-cheatsheet)
 - [Other Implementations](#other-implementations)
 - [Full Specification](#full-specification)
 
-## Why Brevit.NET?
+## Why Brevit?
 
 ### .NET-Specific Advantages
 
@@ -53,7 +53,7 @@ var explicit = await brevit.OptimizeAsync(complexOrder);
 
 ### Automatic Strategy Selection
 
-Brevit.NET now includes the `BrevityAsync()` method that automatically analyzes your data and selects the optimal optimization strategy:
+Brevit now includes the `BrevityAsync()` method that automatically analyzes your data and selects the optimal optimization strategy:
 
 ```csharp
 var data = new
@@ -102,7 +102,7 @@ var order = new Order
 var optimized = await brevit.OptimizeAsync(order);
 ```
 
-## When Not to Use Brevit.NET
+## When Not to Use Brevit
 
 Consider alternatives when:
 
@@ -242,7 +242,7 @@ var optimized = await brevit.BrevityAsync(data);
 
 ## Complete Usage Examples
 
-Brevit.NET supports three main data types: **JSON objects/strings**, **text files/strings**, and **images**. Here's how to use each:
+Brevit supports three main data types: **JSON objects/strings**, **text files/strings**, and **images**. Here's how to use each:
 
 ### 1. JSON Optimization Examples
 
@@ -941,7 +941,7 @@ public interface IImageOptimizer
 - `Ocr` - Extract text via OCR
 - `Metadata` - Extract metadata only
 
-## Using Brevit.NET in LLM Prompts
+## Using Brevit in LLM Prompts
 
 ### Best Practices
 
