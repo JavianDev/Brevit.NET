@@ -290,24 +290,6 @@ var optimized = await brevit.BrevityAsync(jsonString);
 // @o.status:SHIPPED
 ```
 
-#### Example 1.2a: Abbreviations Disabled
-
-```csharp
-var configNoAbbr = new BrevitConfig(JsonMode: JsonOptimizationMode.Flatten)
-{
-    EnableAbbreviations = false  // Disable abbreviations
-};
-var brevitNoAbbr = new BrevitClient(configNoAbbr, 
-    new DefaultJsonOptimizer(), 
-    new DefaultTextOptimizer(), 
-    new DefaultImageOptimizer());
-
-string jsonString = "{\"order\": {\"id\": \"o-456\", \"status\": \"SHIPPED\"}}";
-var optimized = await brevitNoAbbr.BrevityAsync(jsonString);
-// Output (without abbreviations):
-// order.id:o-456
-// order.status:SHIPPED
-```
 
 #### Example 1.3: Complex Nested POCO with Arrays
 
@@ -356,60 +338,6 @@ var optimized = await brevit.BrevityAsync(complexData);
 // luis,9.2,540,2,Ridge Overlook,false
 ```
 
-#### Example 1.3a: Complex Data with Abbreviations Disabled
-
-```csharp
-var configNoAbbr = new BrevitConfig(JsonMode: JsonOptimizationMode.Flatten)
-{
-    EnableAbbreviations = false  // Disable abbreviations
-};
-var brevitNoAbbr = new BrevitClient(configNoAbbr, 
-    new DefaultJsonOptimizer(), 
-    new DefaultTextOptimizer(), 
-    new DefaultImageOptimizer());
-
-var complexData = new
-{
-    Context = new
-    {
-        Task = "Our favorite hikes together",
-        Location = "Boulder",
-        Season = "spring_2025"
-    },
-    Friends = new[] { "ana", "luis", "sam" },
-    Hikes = new[]
-    {
-        new
-        {
-            Id = 1,
-            Name = "Blue Lake Trail",
-            DistanceKm = 7.5,
-            ElevationGain = 320,
-            Companion = "ana",
-            WasSunny = true
-        },
-        new
-        {
-            Id = 2,
-            Name = "Ridge Overlook",
-            DistanceKm = 9.2,
-            ElevationGain = 540,
-            Companion = "luis",
-            WasSunny = false
-        }
-    }
-};
-
-var optimized = await brevitNoAbbr.BrevityAsync(complexData);
-// Output (without abbreviations):
-// Context.Task:Our favorite hikes together
-// Context.Location:Boulder
-// Context.Season:spring_2025
-// Friends[3]:ana,luis,sam
-// Hikes[2]{Companion,DistanceKm,ElevationGain,Id,Name,WasSunny}:
-// ana,7.5,320,1,Blue Lake Trail,true
-// luis,9.2,540,2,Ridge Overlook,false
-```
 
 #### Example 1.4: Different JSON Optimization Modes
 
